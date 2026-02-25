@@ -75,6 +75,7 @@ export const registerHotel = async (req: Request, res: Response) => {
       email
     });
   } catch (error: any) {
+    console.error('Registration Error:', error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -139,12 +140,18 @@ export const loginUser = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const hotelId = (user.hotelId as any)._id.toString();
+    if (!user.hotelId) {
+      console.error(`Login Error: User ${email} has no associated hotel.`);
+      return res.status(400).json({ error: 'Account configuration error: No hotel found for this user.' });
+    }
+
     const hotel = user.hotelId as any;
 
     if (hotel.status === 'deleted') {
       return res.status(403).json({ error: 'This property has been deactivated/deleted. Access is restricted to historical data retrieval only.' });
     }
+
+    const hotelId = hotel._id.toString();
 
     const token = generateToken(
       (user._id as any).toString(),
@@ -167,8 +174,10 @@ export const loginUser = async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
+    console.error('Login Error:', error);
     res.status(400).json({ error: error.message });
   }
+
 };
 
 // POST /api/auth/forgot-password
