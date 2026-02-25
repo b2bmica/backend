@@ -1,7 +1,13 @@
 import { Resend } from 'resend';
 import logger from './logger.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY 
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
+
+if (!resend) {
+  logger.warn('RESEND_API_KEY is missing. Email functionality will be disabled.');
+}
 
 export const sendOTP = async (email: string, otp: string, type: 'signup' | 'forgot-password') => {
   try {
@@ -10,6 +16,11 @@ export const sendOTP = async (email: string, otp: string, type: 'signup' | 'forg
     const message = type === 'signup' 
       ? 'Please use the following OTP to verify your account:' 
       : 'We received a request to reset your password. Use the OTP below to proceed:';
+
+    if (!resend) {
+      logger.error('Attempted to send email but Resend is not configured.');
+      throw new Error('Email service unconfigured');
+    }
 
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
