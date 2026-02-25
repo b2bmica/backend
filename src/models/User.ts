@@ -6,7 +6,10 @@ export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
-  role: 'Super Admin' | 'Manager' | 'Front Desk' | 'Housekeeping';
+  role: 'Super Admin' | 'Manager' | 'Front Desk' | 'Housekeeping' | 'Deactivated';
+  isVerified: boolean;
+  otp?: string;
+  otpExpires?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -18,9 +21,12 @@ const UserSchema: Schema = new Schema(
     password: { type: String, required: true, select: false },
     role: { 
       type: String, 
-      enum: ['Super Admin', 'Manager', 'Front Desk', 'Housekeeping'],
+      enum: ['Super Admin', 'Manager', 'Front Desk', 'Housekeeping', 'Deactivated'],
       default: 'Front Desk' 
     },
+    isVerified: { type: Boolean, default: false },
+    otp: { type: String, select: false },
+    otpExpires: { type: Date, select: false },
   },
   { timestamps: true }
 );

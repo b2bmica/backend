@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Hotel from '../models/Hotel.js';
+import { sendOTP } from '../utils/email.js';
 
 const generateToken = (userId: string, hotelId: string, role: string) => {
   return jwt.sign(
@@ -11,7 +12,9 @@ const generateToken = (userId: string, hotelId: string, role: string) => {
   );
 };
 
-// POST /api/auth/register — Register a new hotel + admin user
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// POST /api/auth/register — Register a new hotel + admin user (Pending Verification)
 export const registerHotel = async (req: Request, res: Response) => {
   try {
     const { hotelName, address, phone, email, password, userName } = req.body;
@@ -19,7 +22,16 @@ export const registerHotel = async (req: Request, res: Response) => {
     // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+      if (existingUser.isVerified) {
+        return res.status(400).json({ error: 'Email already registered' });
+      }
+      // If user exists but not verified, update and resend OTP
+      const otp = generateOTP();
+      existingUser.otp = otp;
+      existingUser.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+      await existingUser.save();
+      await sendOTP(email, otp, 'signup');
+      return res.status(200).json({ message: 'Verification OTP resent to your email' });
     }
 
     // Create slug from hotel name
@@ -41,22 +53,51 @@ export const registerHotel = async (req: Request, res: Response) => {
       settings: { checkinTime: '12:00 PM', checkoutTime: '11:00 AM', currency: 'INR' }
     });
 
-    // Create admin user
-    const user = await User.create({
+    // Create OTP
+    const otp = generateOTP();
+
+    // Create admin user (Unverified)
+    await User.create({
       hotelId: hotel._id,
       name: userName || 'Admin',
       email,
       password,
-      role: 'Super Admin'
+      role: 'Super Admin',
+      isVerified: false,
+      otp,
+      otpExpires: new Date(Date.now() + 10 * 60 * 1000)
     });
 
-    const token = generateToken(
-      (user._id as any).toString(),
-      (hotel._id as any).toString(),
-      user.role
-    );
+    await sendOTP(email, otp, 'signup');
 
     res.status(201).json({
+      message: 'Registration successful. Please verify your email with the OTP sent.',
+      email
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// POST /api/auth/verify-otp — Verify signup OTP
+export const verifyOtp = async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email, otp }).select('+otp +otpExpires').populate('hotelId');
+
+    if (!user || (user.otpExpires && user.otpExpires < new Date())) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    const hotel = user.hotelId as any;
+    const token = generateToken(user._id.toString(), hotel._id.toString(), user.role);
+
+    res.json({
       token,
       user: {
         id: user._id,
@@ -87,6 +128,10 @@ export const loginUser = async (req: Request, res: Response) => {
     const user = await User.findOne({ email }).select('+password').populate('hotelId');
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({ error: 'Please verify your email before logging in', unverified: true });
     }
 
     const isMatch = await user.comparePassword(password);
@@ -121,6 +166,50 @@ export const loginUser = async (req: Request, res: Response) => {
         slug: hotel.slug,
       }
     });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// POST /api/auth/forgot-password
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User with this email not found' });
+    }
+
+    const otp = generateOTP();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    await sendOTP(email, otp, 'forgot-password');
+
+    res.json({ message: 'Password reset OTP sent to your email' });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// POST /api/auth/reset-password
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const user = await User.findOne({ email, otp }).select('+otp +otpExpires');
+
+    if (!user || (user.otpExpires && user.otpExpires < new Date())) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    user.password = newPassword;
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successful. You can now login with your new password.' });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
