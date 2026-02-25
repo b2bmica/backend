@@ -29,7 +29,8 @@ initSocket(httpServer);
 
 // Security & Production Middleware
 app.use(helmet());
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'], credentials: true }));
+const allowedOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:5173', 'http://localhost:3000'];
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(morgan('combined', { stream: { write: (message: string) => logger.info(message.trim()) } }));
 app.use(express.json());
 

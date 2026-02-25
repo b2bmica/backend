@@ -5,11 +5,10 @@ dotenv.config();
 
 export const connectDB = async () => {
   try {
-    const uri = process.env.MONGODB_URI || '';
-    if (uri.includes('<username>') || uri.includes('<password>')) {
-      console.warn('⚠️ WARNING: MONGODB_URI contains placeholders. Please update your .env file with actual credentials.');
-      // For development, we could fallback to local or throw a more specific error
-      throw new Error('MONGODB_URI is not configured. Please add your MongoDB connection string to the .env file.');
+    const uri = process.env.MONGODB_URI || process.env.MONGO_URI || '';
+    if (!uri || uri.includes('<username>') || uri.includes('<password>')) {
+      console.warn('⚠️ WARNING: MongoDB URI is missing or contains placeholders.');
+      throw new Error('MongoDB configuration is missing. Please add MONGODB_URI to your environment variables.');
     }
     const conn = await mongoose.connect(uri);
     console.log(`🚀 MongoDB Connected: ${conn.connection.host}`);
