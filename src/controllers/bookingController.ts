@@ -103,7 +103,7 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
 export const modifyBooking = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { roomId, checkin, checkout } = req.body;
+    const { roomId, checkin, checkout, paymentMethod, advancePayment } = req.body;
     const hotelId = req.hotelId!;
 
     if (checkin && checkout && roomId) {
@@ -113,9 +113,35 @@ export const modifyBooking = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Fetch current booking to compute payment delta
+    const existing = await Booking.findOne({ _id: id, hotelId } as any);
+    
+    const updateData: any = { ...req.body };
+    
+    // If a payment is being recorded (advancePayment increased with a paymentMethod), log it
+    if (
+      paymentMethod &&
+      typeof advancePayment === 'number' &&
+      existing &&
+      advancePayment > (existing.advancePayment || 0)
+    ) {
+      const delta = advancePayment - (existing.advancePayment || 0);
+      updateData.$push = {
+        paymentLogs: {
+          amount: delta,
+          method: paymentMethod,
+          date: new Date(),
+          note: req.body.status === 'checked-out' ? 'Final settlement' : 'Partial payment'
+        }
+      };
+      // Remove advancePayment from main body so $push and $set don't conflict
+      delete updateData.advancePayment;
+      delete updateData.paymentMethod;
+    }
+
     const booking = await Booking.findOneAndUpdate(
       { _id: id, hotelId } as any,
-      req.body,
+      updateData,
       { new: true }
     ).populate('roomId', 'roomNumber roomType price')
      .populate('guestId', 'name phone email');
@@ -136,6 +162,7 @@ export const modifyBooking = async (req: AuthRequest, res: Response) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // DELETE /api/bookings/:id — Cancel a booking
 export const cancelBooking = async (req: AuthRequest, res: Response) => {

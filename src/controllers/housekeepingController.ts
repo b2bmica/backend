@@ -74,7 +74,7 @@ export const updateCleaningStatus = async (req: AuthRequest, res: Response) => {
 
     // If status is "ready", update the actual Room model to "clean"
     if (status === 'ready') {
-      await Room.findByIdAndUpdate(ticket.roomId, { status: 'available' });
+      await Room.findByIdAndUpdate(ticket.roomId, { status: 'clean' });
     } else if (status === 'cleaning') {
       await Room.findByIdAndUpdate(ticket.roomId, { status: 'cleaning' });
     }
@@ -99,10 +99,8 @@ export const createMaintenanceTicket = async (req: AuthRequest, res: Response) =
       status: 'pending'
     });
 
-    // Update room status to denote maintenance if priority is urgent
-    if (priority === 'urgent') {
-      await Room.findByIdAndUpdate(roomId, { status: 'maintenance' });
-    }
+    // Update room status to denote maintenance
+    await Room.findByIdAndUpdate(roomId, { status: 'maintenance' });
 
     // Populate for context
     const populated = await MaintenanceTicket.findById(ticket._id).populate('roomId', 'roomNumber');
