@@ -66,14 +66,25 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       return res.status(409).json({ error: 'Room is already booked for these dates' });
     }
 
-    const booking = await Booking.create({
+    const bookingData: any = {
       ...details,
       roomId,
       roomPrice: room.price,
       checkin,
       checkout,
       hotelId
-    });
+    };
+
+    if (details.advancePayment > 0) {
+      bookingData.paymentLogs = [{
+        amount: details.advancePayment,
+        method: details.paymentMethod || 'cash',
+        date: new Date(),
+        note: 'Initial advance'
+      }];
+    }
+
+    const booking = await Booking.create(bookingData);
 
     // Populate before returning
     const populated = await Booking.findById(booking._id)
@@ -134,14 +145,24 @@ export const modifyBooking = async (req: AuthRequest, res: Response) => {
           note: req.body.status === 'checked-out' ? 'Final settlement' : 'Partial payment'
         }
       };
-      // Remove advancePayment from main body so $push and $set don't conflict
-      delete updateData.advancePayment;
-      delete updateData.paymentMethod;
+      
+      // We still update advancePayment as a normal field via $set
+      // updateData at this point is like { roomId, ..., advancePayment: 1000 }
+      // To use $push and fields in top-level together, we should be explicit
+    }
+
+    // Explicitly separate top-level fields for $set
+    const setFields = { ...updateData };
+    delete setFields.$push; // remove operator if it exists
+
+    const finalUpdate: any = { $set: setFields };
+    if (updateData.$push) {
+      finalUpdate.$push = updateData.$push;
     }
 
     const booking = await Booking.findOneAndUpdate(
       { _id: id, hotelId } as any,
-      updateData,
+      finalUpdate,
       { new: true }
     ).populate('roomId', 'roomNumber roomType price')
      .populate('guestId', 'name phone email');
