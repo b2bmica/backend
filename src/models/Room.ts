@@ -6,6 +6,10 @@ export interface IRoom extends Document {
   roomType: string;
   amenities: string[];
   price: number;
+  floor?: number;
+  baseOccupancy: number;
+  maxOccupancy: number;
+  extraPersonPrice: number;
   status: 'clean' | 'dirty' | 'occupied' | 'maintenance';
 }
 
@@ -16,6 +20,10 @@ const RoomSchema: Schema = new Schema(
     roomType: { type: String, required: true },
     amenities: [{ type: String }],
     price: { type: Number, required: true },
+    floor: { type: Number },
+    baseOccupancy: { type: Number, default: 2 },
+    maxOccupancy: { type: Number, default: 4 },
+    extraPersonPrice: { type: Number, default: 0 },
     status: {
       type: String,
       enum: ['clean', 'dirty', 'occupied', 'maintenance'],

@@ -9,6 +9,8 @@ export interface IBooking extends Document {
   adults: number;
   children: number;
   roomPrice: number; // Snapshot of price at booking
+  baseOccupancy: number; // Snapshot
+  extraPersonPrice: number; // Snapshot
   advancePayment: number;
   bookingSource: string;
   status: 'reserved' | 'checked-in' | 'checked-out' | 'cancelled';
@@ -24,6 +26,8 @@ const BookingSchema: Schema = new Schema(
     adults: { type: Number, default: 1 },
     children: { type: Number, default: 0 },
     roomPrice: { type: Number, default: 0 },
+    baseOccupancy: { type: Number, default: 2 },
+    extraPersonPrice: { type: Number, default: 0 },
     advancePayment: { type: Number, default: 0 },
     bookingSource: { type: String, default: 'direct' },
     status: {
