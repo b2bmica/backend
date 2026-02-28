@@ -8,7 +8,8 @@ const hasConflict = async (hotelId: string, roomId: string, checkin: Date, check
   const query: any = {
     hotelId,
     roomId,
-    status: { $ne: 'cancelled' },
+    // Exclude cancelled and checked-out bookings from conflict detection
+    status: { $nin: ['cancelled', 'checked-out'] },
     $or: [
       { checkin: { $lt: checkout }, checkout: { $gt: checkin } }
     ]
@@ -173,9 +174,20 @@ export const modifyBooking = async (req: AuthRequest, res: Response) => {
     if (req.body.status === 'checked-in') {
       await Room.findByIdAndUpdate(booking.roomId, { status: 'occupied' });
     }
-    // If checking out, set room to dirty
+    // If checking out, set room to dirty and update checkout date to today if it was in the future
     if (req.body.status === 'checked-out') {
       await Room.findByIdAndUpdate(booking.roomId, { status: 'dirty' });
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const originalCheckout = new Date(booking.checkout);
+      originalCheckout.setHours(0, 0, 0, 0);
+      
+      if (today < originalCheckout) {
+        // Guest is checking out early. Update the checkout record so the room is free for others.
+        const dateStr = today.toISOString().split('T')[0];
+        await Booking.findByIdAndUpdate(booking._id, { checkout: dateStr });
+      }
     }
 
     res.json(booking);
@@ -219,7 +231,7 @@ export const checkAvailability = async (req: AuthRequest, res: Response) => {
 
     const busyBookings = await Booking.find({
       hotelId,
-      status: { $ne: 'cancelled' },
+      status: { $nin: ['cancelled', 'checked-out'] },
       $or: [
         { checkin: { $lt: endDate }, checkout: { $gt: startDate } }
       ]
