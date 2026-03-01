@@ -72,6 +72,7 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       ...details,
       roomId,
       roomPrice: room.price,
+      checkin,
       checkout,
       hotelId,
       createdBy: req.user?.userId
