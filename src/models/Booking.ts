@@ -16,6 +16,7 @@ export interface IBooking extends Document {
   paymentMethod?: string;
   paymentLogs: Array<{ amount: number; method: string; date: Date; note?: string }>;
   status: 'reserved' | 'checked-in' | 'checked-out' | 'cancelled';
+  createdBy?: mongoose.Types.ObjectId;
 }
 
 const BookingSchema: Schema = new Schema(
@@ -44,6 +45,7 @@ const BookingSchema: Schema = new Schema(
       enum: ['reserved', 'checked-in', 'checked-out', 'cancelled'],
       default: 'reserved',
     },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );

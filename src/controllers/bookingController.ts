@@ -39,6 +39,7 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
       Booking.find(filter)
         .populate('roomId', 'roomNumber roomType price')
         .populate('guestId', 'name phone email')
+        .populate('createdBy', 'name email')
         .skip(skip).limit(limit)
         .sort({ checkin: -1 }),
       Booking.countDocuments(filter)
@@ -71,9 +72,9 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       ...details,
       roomId,
       roomPrice: room.price,
-      checkin,
       checkout,
-      hotelId
+      hotelId,
+      createdBy: req.user?.userId
     };
 
     if (details.advancePayment > 0) {
@@ -90,7 +91,8 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     // Populate before returning
     const populated = await Booking.findById(booking._id)
       .populate('roomId', 'roomNumber roomType price')
-      .populate('guestId', 'name phone email');
+      .populate('guestId', 'name phone email')
+      .populate('createdBy', 'name email');
 
     // Notify via Socket
     try {
@@ -166,7 +168,8 @@ export const modifyBooking = async (req: AuthRequest, res: Response) => {
       finalUpdate,
       { new: true }
     ).populate('roomId', 'roomNumber roomType price')
-     .populate('guestId', 'name phone email');
+     .populate('guestId', 'name phone email')
+     .populate('createdBy', 'name email');
 
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
@@ -264,7 +267,8 @@ export const getCalendarData = async (req: AuthRequest, res: Response) => {
       checkout: { $gte: new Date(start) }
     } as any)
       .populate('roomId', 'roomNumber roomType price')
-      .populate('guestId', 'name phone email');
+      .populate('guestId', 'name phone email')
+      .populate('createdBy', 'name email');
 
     res.json(bookings);
   } catch (error: any) {

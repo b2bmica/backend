@@ -27,9 +27,8 @@ const GuestSchema: Schema = new Schema(
       idType: { 
         type: String, 
         enum: ['aadhaar', 'passport', 'driving-license'],
-        required: true 
       },
-      number: { type: String, required: true },
+      number: { type: String },
       fileUrl: { type: String },
     },
     stayHistory: [{ type: Schema.Types.ObjectId, ref: 'Booking' }],
