@@ -36,8 +36,8 @@ const GuestSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-// Search indexes
-GuestSchema.index({ hotelId: 1, phone: 1 }, { unique: true });
+// Search / lookup indexes (non-unique — same phone/email allowed)
+GuestSchema.index({ hotelId: 1, phone: 1 });
 GuestSchema.index({ hotelId: 1, name: 'text', email: 'text' });
 
 export default mongoose.model<IGuest>('Guest', GuestSchema);

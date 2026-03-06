@@ -139,6 +139,14 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // guestId required for everything except blocks
+    const guestId = details.guestId;
+    if (reservationType !== 'block' && !guestId) {
+      return res.status(400).json({ error: 'guestId is required for booking and enquiry reservations' });
+    }
+    // Remove it from details to prevent it spreading into bookingData with an invalid value
+    delete details.guestId;
+
     // Overlap Check
     const conflict = await hasConflict(hotelId, roomId, startDate, endDate);
     if (conflict) {
@@ -174,6 +182,9 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       adults: adults || 1,
       createdBy: req.user?.userId
     };
+
+    // Only set guestId when a valid one exists (blocks may have none)
+    if (guestId) bookingData.guestId = guestId;
 
     if (reservationType === 'enquiry') bookingData.enquiryExpiresAt = enquiryExpiresAt;
     if (reservationType === 'block') {
