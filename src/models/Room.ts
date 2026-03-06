@@ -11,6 +11,8 @@ export interface IRoom extends Document {
   maxOccupancy: number;
   extraPersonPrice: number;
   status: 'clean' | 'dirty' | 'occupied' | 'maintenance';
+  checkinTime?: string;
+  checkoutTime?: string;
 }
 
 const RoomSchema: Schema = new Schema(
@@ -29,6 +31,8 @@ const RoomSchema: Schema = new Schema(
       enum: ['clean', 'dirty', 'occupied', 'maintenance'],
       default: 'clean',
     },
+    checkinTime: { type: String },
+    checkoutTime: { type: String },
   },
   { timestamps: true }
 );

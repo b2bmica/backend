@@ -9,6 +9,7 @@ import { connectDB } from './config/db.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
 import logger from './utils/logger.js';
 import { initSocket } from './utils/socket.util.js';
+import { startExpiryJob } from './utils/bookingExpiryJob.js';
 
 import authRoutes from './routes/authRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
@@ -26,6 +27,9 @@ const httpServer = createServer(app);
 
 // Initialize Socket.io
 initSocket(httpServer);
+
+// Start Background Jobs
+startExpiryJob();
 
 // Security & Production Middleware
 app.use(helmet());

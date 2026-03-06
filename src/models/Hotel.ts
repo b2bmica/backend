@@ -11,8 +11,17 @@ export interface IHotel extends Document {
   status: 'active' | 'deleted';
   deletedAt?: Date;
   settings: {
-    checkinTime: string;
-    checkoutTime: string;
+    defaultCheckinTime: string;
+    defaultCheckoutTime: string;
+    earlyCheckinBuffer: number;
+    lateCheckoutBuffer: number;
+    mealRates: {
+      cp: number;
+      map: number;
+      ap: number;
+    };
+    defaultEnquiryHold: number;
+    defaultBlockDuration: number;
     currency: string;
     taxConfig: {
       enabled: boolean;
@@ -36,15 +45,24 @@ const HotelSchema: Schema = new Schema(
     status: { type: String, enum: ['active', 'deleted'], default: 'active' },
     deletedAt: { type: Date },
     settings: {
-      checkinTime: { type: String, default: '12:00 PM' },
-      checkoutTime: { type: String, default: '11:00 AM' },
+      defaultCheckinTime: { type: String, default: '14:00' },
+      defaultCheckoutTime: { type: String, default: '11:00' },
+      earlyCheckinBuffer: { type: Number, default: 0 },
+      lateCheckoutBuffer: { type: Number, default: 0 },
+      mealRates: {
+        cp: { type: Number, default: 0 },
+        map: { type: Number, default: 0 },
+        ap: { type: Number, default: 0 }
+      },
+      defaultEnquiryHold: { type: Number, default: 240 },
+      defaultBlockDuration: { type: Number, default: 1440 },
       currency: { type: String, default: 'INR' },
       taxConfig: {
         enabled: { type: Boolean, default: true },
-        cgst: { type: Number, default: 6 }, // 12% total GST is common
+        cgst: { type: Number, default: 6 },
         sgst: { type: Number, default: 6 },
         igst: { type: Number, default: 12 },
-        hsnCode: { type: String, default: '9963' } // HSN for Accommodation services
+        hsnCode: { type: String, default: '9963' }
       }
     }
   },

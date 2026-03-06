@@ -15,7 +15,14 @@ export interface IBooking extends Document {
   bookingSource: string;
   paymentMethod?: string;
   paymentLogs: Array<{ amount: number; method: string; date: Date; note?: string }>;
-  status: 'reserved' | 'checked-in' | 'checked-out' | 'cancelled';
+  status: 'reserved' | 'checked-in' | 'checked-out' | 'cancelled' | 'expired' | 'blocked';
+  reservationType: 'booking' | 'enquiry' | 'block' | 'group';
+  planType: 'EP' | 'CP' | 'MAP' | 'AP' | 'custom';
+  planDescription?: string;
+  enquiryExpiresAt?: Date;
+  blockExpiresAt?: Date;
+  groupId?: string;
+  mealChargeTotal: number;
   createdBy?: mongoose.Types.ObjectId;
 }
 
@@ -42,9 +49,26 @@ const BookingSchema: Schema = new Schema(
     }],
     status: {
       type: String,
-      enum: ['reserved', 'checked-in', 'checked-out', 'cancelled'],
+      enum: ['reserved', 'checked-in', 'checked-out', 'cancelled', 'expired', 'blocked'],
       default: 'reserved',
     },
+    reservationType: {
+      type: String,
+      enum: ['booking', 'enquiry', 'block', 'group'],
+      default: 'booking',
+      required: true
+    },
+    planType: {
+      type: String,
+      enum: ['EP', 'CP', 'MAP', 'AP', 'custom'],
+      default: 'EP',
+      required: true
+    },
+    planDescription: { type: String },
+    enquiryExpiresAt: { type: Date },
+    blockExpiresAt: { type: Date },
+    groupId: { type: String, index: true },
+    mealChargeTotal: { type: Number, default: 0 },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

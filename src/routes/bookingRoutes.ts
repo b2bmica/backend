@@ -5,7 +5,10 @@ import {
   modifyBooking, 
   cancelBooking, 
   checkAvailability, 
-  getCalendarData 
+  getCalendarData,
+  createGroupBooking,
+  getGroupBookings,
+  expireBooking
 } from '../controllers/bookingController.js';
 import { protect } from '../middleware/auth.js';
 import { tenantMiddleware } from '../middleware/tenant.js';
@@ -21,5 +24,8 @@ router.put('/:id', modifyBooking);
 router.delete('/:id', cancelBooking);
 router.get('/availability', checkAvailability);
 router.get('/calendar', getCalendarData);
+router.post('/group', createGroupBooking);
+router.get('/group/:groupId', getGroupBookings);
+router.patch('/:id/expire', expireBooking);
 
 export default router;
