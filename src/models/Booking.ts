@@ -17,11 +17,12 @@ export interface IBooking extends Document {
   paymentLogs: Array<{ amount: number; method: string; date: Date; note?: string }>;
   status: 'reserved' | 'checked-in' | 'checked-out' | 'cancelled' | 'expired' | 'blocked';
   reservationType: 'booking' | 'enquiry' | 'block' | 'group';
-  planType: 'EP' | 'CP' | 'MAP' | 'AP' | 'custom';
+  planType: string;
   planDescription?: string;
   enquiryExpiresAt?: Date;
   blockExpiresAt?: Date;
   groupId?: string;
+  mealRate: number;
   mealChargeTotal: number;
   createdBy?: mongoose.Types.ObjectId;
 }
@@ -60,7 +61,6 @@ const BookingSchema: Schema = new Schema(
     },
     planType: {
       type: String,
-      enum: ['EP', 'CP', 'MAP', 'AP', 'custom'],
       default: 'EP',
       required: true
     },
@@ -68,6 +68,7 @@ const BookingSchema: Schema = new Schema(
     enquiryExpiresAt: { type: Date },
     blockExpiresAt: { type: Date },
     groupId: { type: String, index: true },
+    mealRate: { type: Number, default: 0 },
     mealChargeTotal: { type: Number, default: 0 },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },

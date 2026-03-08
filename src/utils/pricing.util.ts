@@ -6,11 +6,8 @@ interface PriceParams {
   baseOccupancy: number;
   extraPersonRate: number;
   planType: 'EP' | 'CP' | 'MAP' | 'AP' | 'custom';
-  mealRates: {
-    cp: number;
-    map: number;
-    ap: number;
-  };
+  mealRates: Record<string, number>;
+  mealRateOverride?: number;
   gstRates: {
     cgst: number;
     sgst: number;
@@ -27,10 +24,14 @@ export const calculateBookingPrice = (params: PriceParams) => {
   const extraPersonCharge = extraPersons * params.extraPersonRate * nights;
   
   let mealChargePerPersonPerDay = 0;
-  const plan = params.planType.toLowerCase();
-  if (plan === 'cp') mealChargePerPersonPerDay = params.mealRates.cp;
-  else if (plan === 'map') mealChargePerPersonPerDay = params.mealRates.map;
-  else if (plan === 'ap') mealChargePerPersonPerDay = params.mealRates.ap;
+  if (params.mealRateOverride !== undefined) {
+    mealChargePerPersonPerDay = params.mealRateOverride;
+  } else {
+    const plan = params.planType.toUpperCase();
+    if (plan !== 'EP' && plan !== 'CUSTOM') {
+      mealChargePerPersonPerDay = params.mealRates[plan] || params.mealRates[plan.toLowerCase()] || 0;
+    }
+  }
   
   const mealChargeTotal = mealChargePerPersonPerDay * params.adults * nights;
   

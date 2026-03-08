@@ -50,7 +50,7 @@ export const registerHotel = async (req: Request, res: Response) => {
       address: address || 'Not specified',
       phone: phone || '0000000000',
       email,
-      settings: { checkinTime: '12:00 PM', checkoutTime: '11:00 AM', currency: 'INR' }
+      settings: { checkinTimes: ['14:00'], checkoutTimes: ['11:00'], currency: 'INR' }
     });
 
     // Create OTP

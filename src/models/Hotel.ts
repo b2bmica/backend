@@ -11,15 +11,16 @@ export interface IHotel extends Document {
   status: 'active' | 'deleted';
   deletedAt?: Date;
   settings: {
-    defaultCheckinTime: string;
-    defaultCheckoutTime: string;
+    checkinTimes: string[];
+    checkoutTimes: string[];
     earlyCheckinBuffer: number;
     lateCheckoutBuffer: number;
-    mealRates: {
-      cp: number;
-      map: number;
-      ap: number;
-    };
+    mealRates: Record<string, number>;
+    stayPlans: Array<{
+      key: string;
+      label: string;
+      description: string;
+    }>;
     defaultEnquiryHold: number;
     defaultBlockDuration: number;
     currency: string;
@@ -45,14 +46,24 @@ const HotelSchema: Schema = new Schema(
     status: { type: String, enum: ['active', 'deleted'], default: 'active' },
     deletedAt: { type: Date },
     settings: {
-      defaultCheckinTime: { type: String, default: '14:00' },
-      defaultCheckoutTime: { type: String, default: '11:00' },
+      checkinTimes: { type: [String], default: ['14:00'] },
+      checkoutTimes: { type: [String], default: ['11:00'] },
       earlyCheckinBuffer: { type: Number, default: 0 },
       lateCheckoutBuffer: { type: Number, default: 0 },
-      mealRates: {
-        cp: { type: Number, default: 0 },
-        map: { type: Number, default: 0 },
-        ap: { type: Number, default: 0 }
+      mealRates: { type: Schema.Types.Mixed, default: { CP: 350, MAP: 650, AP: 950 } },
+      stayPlans: {
+        type: [{
+          key: String,
+          label: String,
+          description: String
+        }],
+        default: [
+          { key: 'EP', label: 'Room Only', description: 'No meals included' },
+          { key: 'CP', label: 'Continental Plan', description: 'Room + Breakfast' },
+          { key: 'MAP', label: 'Modified American', description: 'Room + Breakfast + Dinner' },
+          { key: 'AP', label: 'American Plan', description: 'Room + All Meals (B+L+D)' },
+          { key: 'custom', label: 'Custom Inclusions', description: 'Specify your own package' }
+        ]
       },
       defaultEnquiryHold: { type: Number, default: 240 },
       defaultBlockDuration: { type: Number, default: 1440 },

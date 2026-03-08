@@ -54,6 +54,7 @@ const standardizeBooking = (booking: any, hotel: any) => {
     extraPersonRate: bookingObj.extraPersonPrice || (bookingObj.roomId as any)?.extraPersonPrice || 0,
     planType: bookingObj.planType || 'EP',
     mealRates: hotel.settings.mealRates,
+    mealRateOverride: bookingObj.mealRate,
     gstRates: {
       cgst: hotel.settings.taxConfig.cgst,
       sgst: hotel.settings.taxConfig.sgst
@@ -65,8 +66,8 @@ const standardizeBooking = (booking: any, hotel: any) => {
     pricing,
     room: {
       ...(bookingObj.roomId as any),
-      checkinTime: (bookingObj.roomId as any)?.checkinTime || hotel.settings.defaultCheckinTime,
-      checkoutTime: (bookingObj.roomId as any)?.checkoutTime || hotel.settings.defaultCheckoutTime
+      checkinTime: (bookingObj.roomId as any)?.checkinTime || hotel.settings.checkinTimes?.[0] || '14:00',
+      checkoutTime: (bookingObj.roomId as any)?.checkoutTime || hotel.settings.checkoutTimes?.[0] || '11:00'
     }
   };
 };
@@ -178,6 +179,7 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       hotelId,
       reservationType: reservationType || 'booking',
       planType: planType || 'EP',
+      mealRate: (planType && planType.toUpperCase() !== 'EP' && planType.toUpperCase() !== 'CUSTOM') ? (hotel.settings.mealRates[planType.toUpperCase()] || 0) : 0,
       mealChargeTotal: pricing.mealChargeTotal,
       adults: adults || 1,
       createdBy: req.user?.userId
@@ -278,6 +280,8 @@ export const modifyBooking = async (req: AuthRequest, res: Response) => {
         }
       });
       updateData.mealChargeTotal = pricing.mealChargeTotal;
+      const targetPlan = planType || existing.planType || 'EP';
+      updateData.mealRate = (targetPlan && targetPlan.toUpperCase() !== 'EP' && targetPlan.toUpperCase() !== 'CUSTOM') ? (hotel.settings.mealRates[targetPlan.toUpperCase()] || 0) : 0;
     }
 
     if (paymentMethod && typeof advancePayment === 'number' && advancePayment > (existing.advancePayment || 0)) {
@@ -390,8 +394,8 @@ export const checkAvailability = async (req: AuthRequest, res: Response) => {
         maxOccupancy: room.maxOccupancy,
         baseOccupancy: room.baseOccupancy,
         status: roomBusy ? (roomBusy.reservationType === 'block' ? 'blocked' : 'occupied') : 'available',
-        checkinTime: room.checkinTime || hotel.settings.defaultCheckinTime,
-        checkoutTime: room.checkoutTime || hotel.settings.defaultCheckoutTime,
+        checkinTime: room.checkinTime || hotel.settings.checkinTimes?.[0] || '14:00',
+        checkoutTime: room.checkoutTime || hotel.settings.checkoutTimes?.[0] || '11:00',
         currentGuest: roomBusy ? { 
           name: (roomBusy.guestId as any)?.name || 'Blocked', 
           checkin: roomBusy.checkin, 

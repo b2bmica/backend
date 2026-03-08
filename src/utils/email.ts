@@ -18,6 +18,10 @@ export const sendOTP = async (email: string, otp: string, type: 'signup' | 'forg
       : 'We received a request to reset your password. Use the OTP below to proceed:';
 
     if (!resend) {
+      if (process.env.NODE_ENV === 'development' || !process.env.RESEND_API_KEY) {
+        logger.warn(`EMAIL MOCK (No Resend API Key) => To: ${email} | Subject: ${subject} | OTP: ${otp}`);
+        return { mock: true, otp };
+      }
       logger.error('Attempted to send email but Resend is not configured.');
       throw new Error('Email service unconfigured');
     }
