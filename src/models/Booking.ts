@@ -25,6 +25,9 @@ export interface IBooking extends Document {
   mealRate: number;
   mealChargeTotal: number;
   createdBy?: mongoose.Types.ObjectId;
+  blockReason?: string;
+  specialRequests?: string;
+  planCustomText?: string;
 }
 
 const BookingSchema: Schema = new Schema(
@@ -65,6 +68,9 @@ const BookingSchema: Schema = new Schema(
       required: true
     },
     planDescription: { type: String },
+    planCustomText: { type: String },
+    specialRequests: { type: String },
+    blockReason: { type: String },
     enquiryExpiresAt: { type: Date },
     blockExpiresAt: { type: Date },
     groupId: { type: String, index: true },
