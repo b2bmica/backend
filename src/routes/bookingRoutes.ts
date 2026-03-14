@@ -8,6 +8,7 @@ import {
   getCalendarData,
   createGroupBooking,
   getGroupBookings,
+  updateGroup,
   expireBooking
 } from '../controllers/bookingController.js';
 import { protect } from '../middleware/auth.js';
@@ -26,6 +27,7 @@ router.get('/availability', checkAvailability);
 router.get('/calendar', getCalendarData);
 router.post('/group', createGroupBooking);
 router.get('/group/:groupId', getGroupBookings);
+router.patch('/group/:groupId', updateGroup);
 router.patch('/:id/expire', expireBooking);
 
 export default router;

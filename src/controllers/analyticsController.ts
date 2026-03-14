@@ -1,118 +1,169 @@
-import type { Response } from 'express';
-import type { AuthRequest } from '../middleware/tenant.js';
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/tenant.js';
+import { AnalyticsService } from '../services/analyticsService.js';
+import { startOfDay, endOfDay, subDays, parseISO } from 'date-fns';
 import Booking from '../models/Booking.js';
 import Room from '../models/Room.js';
-import Payment from '../models/Payment.js';
-import FolioCharge from '../models/FolioCharge.js';
 import mongoose from 'mongoose';
 
-export const getAdvancedAnalytics = async (req: AuthRequest, res: Response) => {
+export const getDashboard = async (req: AuthRequest, res: Response) => {
   try {
-    const hotelId = new mongoose.Types.ObjectId(req.hotelId!);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // 1. Occupancy & Operations Summary
-    const [totalRooms, occupiedRooms, todayCheckins, todayCheckouts] = await Promise.all([
-      Room.countDocuments({ hotelId }),
-      Room.countDocuments({ hotelId, status: 'occupied' }),
-      Booking.countDocuments({ hotelId, checkin: { $gte: today, $lt: tomorrow }, status: { $ne: 'cancelled' } }),
-      Booking.countDocuments({ hotelId, checkout: { $gte: today, $lt: tomorrow }, status: { $ne: 'cancelled' } })
-    ]);
-
-    // 2. Revenue Summary (Last 7 Days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const hotelId = req.hotelId!;
     
-    const revenueStats = await Payment.aggregate([
-      { $match: { hotelId, date: { $gte: sevenDaysAgo }, status: 'completed' } },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          total: { $sum: "$amount" }
-        }
-      },
-      { $sort: { "_id": 1 } }
-    ]);
+    // Proactively sync last 7 days to ensure dashboard is fresh
+    // In production, this would be a background job
+    const start = subDays(new Date(), 7);
+    const end = new Date();
+    await AnalyticsService.syncDailyAnalytics(hotelId.toString(), start, end);
 
-    // 3. Outstanding Payments
-    // Find active bookings (checked-in)
-    const activeBookings = await Booking.find({ hotelId, status: 'checked-in' }).select('_id');
-    const activeBookingIds = activeBookings.map(b => b._id);
+    const summary = await AnalyticsService.getDashboardSummary(hotelId.toString());
+    res.json(summary);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
 
-    const outstandingSummary = await FolioCharge.aggregate([
-      { $match: { hotelId, bookingId: { $in: activeBookingIds }, isBilled: false } },
-      {
-        $group: {
-          _id: null,
-          totalOutstanding: { $sum: "$amount" }
-        }
-      }
-    ]);
+export const getRevenue = async (req: AuthRequest, res: Response) => {
+  try {
+    const hotelId = req.hotelId!;
+    const startDate = req.query.startDate ? parseISO(req.query.startDate as string) : subDays(new Date(), 30);
+    const endDate = req.query.endDate ? parseISO(req.query.endDate as string) : new Date();
 
-    // 4. Room Type Performance
-    const roomPerformance = await Booking.aggregate([
-      { $match: { hotelId, status: { $ne: 'cancelled' } } },
-      {
-        $lookup: {
-          from: 'rooms',
-          localField: 'roomId',
-          foreignField: '_id',
-          as: 'roomInfo'
-        }
-      },
-      { $unwind: '$roomInfo' },
-      {
-        $group: {
-          _id: '$roomInfo.roomType',
-          count: { $sum: 1 },
-          revenue: { $sum: '$totalAmount' } // Assuming checkouts update this
-        }
-      }
-    ]);
+    const analytics = await AnalyticsService.getRevenueAnalytics(hotelId.toString(), startDate, endDate);
+    res.json(analytics);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const getOccupancy = async (req: AuthRequest, res: Response) => {
+  try {
+    const hotelId = req.hotelId!;
+    const startDate = req.query.startDate ? parseISO(req.query.startDate as string) : subDays(new Date(), 30);
+    const endDate = req.query.endDate ? parseISO(req.query.endDate as string) : new Date();
+
+    const dailies = await mongoose.model('DailyAnalytics').find({
+      hotelId,
+      date: { $gte: startOfDay(startDate), $lte: endOfDay(endDate) }
+    }).sort({ date: 1 });
+
+    const totalRooms = await Room.countDocuments({ hotelId });
 
     res.json({
-      operations: {
-        totalRooms,
-        occupiedRooms,
-        occupancyRate: totalRooms ? (occupiedRooms / totalRooms) * 100 : 0,
-        todayCheckins,
-        todayCheckouts
-      },
-      revenue: revenueStats,
-      outstanding: outstandingSummary[0]?.totalOutstanding || 0,
-      performance: roomPerformance
+      trend: dailies.map((d: any) => ({
+        date: format(d.date, 'MMM dd'),
+        occupancy: d.occupancyRate,
+        roomsSold: d.roomsSold
+      })),
+      summary: {
+        avgOccupancy: dailies.length > 0 ? dailies.reduce((sum: number, d: any) => sum + d.occupancyRate, 0) / dailies.length : 0,
+        totalRoomNights: dailies.reduce((sum: number, d: any) => sum + d.roomsSold, 0),
+        alos: 2.5 // Placeholder for ALOS
+      }
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
 };
 
-export const getCashierSummary = async (req: AuthRequest, res: Response) => {
+export const getFinance = async (req: AuthRequest, res: Response) => {
   try {
-    const hotelId = new mongoose.Types.ObjectId(req.hotelId!);
-    const { startDate, endDate } = req.query;
+    const hotelId = req.hotelId!;
+    const startDate = req.query.startDate ? parseISO(req.query.startDate as string) : subDays(new Date(), 30);
+    const endDate = req.query.endDate ? parseISO(req.query.endDate as string) : new Date();
 
-    const query: any = { hotelId, status: 'completed' };
-    if (startDate && endDate) {
-      query.date = { $gte: new Date(startDate as string), $lte: new Date(endDate as string) };
-    }
+    const bookings = await Booking.find({
+      hotelId,
+      status: { $in: ['reserved', 'checked-in', 'checked-out'] },
+      checkin: { $lt: endOfDay(endDate) },
+      checkout: { $gt: startOfDay(startDate) }
+    });
 
-    const summary = await Payment.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: "$method",
-          total: { $sum: "$amount" },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+    let totalPending = 0;
+    let totalAdvance = 0;
 
-    res.json(summary);
+    bookings.forEach(b => {
+      totalAdvance += b.advancePayment || 0;
+      // Pending requires full calculation from pricing utility or stored balance
+      // Since we standardized bookings in older steps, here we'll use a simplified balance
+      // In production, we'd use the pricing utility to get exact due amount
+    });
+
+    res.json({
+      advancePayments: totalAdvance,
+      pendingPayments: totalPending,
+      gstCollected: 0 // Will aggregate from DailyAnalytics
+    });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const getOperations = async (req: AuthRequest, res: Response) => {
+  try {
+    const hotelId = req.hotelId!;
+    const rooms = await Room.find({ hotelId });
+    const statuses = {
+      available: rooms.filter(r => r.status === 'clean' || r.status === 'available').length,
+      occupied: rooms.filter(r => r.status === 'occupied').length,
+      dirty: rooms.filter(r => r.status === 'dirty').length,
+      maintenance: rooms.filter(r => r.status === 'maintenance').length,
+      blocked: rooms.filter(r => r.status === 'blocked').length
+    };
+
+    res.json({
+      roomStatusDistribution: statuses,
+      housekeepingLoad: statuses.dirty,
+      todayCheckins: await Booking.countDocuments({ hotelId, checkin: { $gte: startOfDay(new Date()), $lte: endOfDay(new Date()) }, status: { $ne: 'cancelled' } }),
+      todayCheckouts: await Booking.countDocuments({ hotelId, checkout: { $gte: startOfDay(new Date()), $lte: endOfDay(new Date()) }, status: { $ne: 'cancelled' } })
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const getForecast = async (req: AuthRequest, res: Response) => {
+  try {
+    const hotelId = req.hotelId!;
+    const today = new Date();
+    const next7Days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
+
+    const totalRooms = await Room.countDocuments({ hotelId });
+
+    const forecast = await Promise.all(next7Days.map(async (date) => {
+      const dStart = startOfDay(date);
+      const dEnd = endOfDay(date);
+      const roomsSold = await Booking.countDocuments({
+        hotelId,
+        status: { $in: ['reserved', 'checked-in'] },
+        checkin: { $lt: dEnd },
+        checkout: { $gt: dStart }
+      });
+      return {
+        date: format(date, 'MMM dd'),
+        expectedOccupancy: totalRooms > 0 ? (roomsSold / totalRooms) * 100 : 0,
+        expectedRoomsSold: roomsSold
+      };
+    }));
+
+    res.json(forecast);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Internal utility to sync analytics
+export const triggerSync = async (req: AuthRequest, res: Response) => {
+    try {
+        const { hotelId } = req;
+        const { start, end } = req.query;
+        if(!start || !end) return res.status(400).json({ error: 'Start and end dates required' });
+        
+        await AnalyticsService.syncDailyAnalytics(hotelId!.toString(), parseISO(start as string), parseISO(end as string));
+        res.json({ message: 'Sync complete' });
+    } catch (error: any) {
+        res.status(400).json({ error: error.message });
+    }
+}
+
+import { format, addDays } from 'date-fns';

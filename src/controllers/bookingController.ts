@@ -545,7 +545,7 @@ export const getGroupBookings = async (req: AuthRequest, res: Response) => {
 
     const [hotel, group, bookings] = await Promise.all([
       Hotel.findById(hotelId),
-      Group.findOne({ _id: groupId, hotelId }).populate('leadGuestId', 'name phone email'),
+      mongoose.Types.ObjectId.isValid(groupId) ? Group.findOne({ _id: groupId, hotelId }).populate('leadGuestId', 'name phone email') : Promise.resolve(null),
       Booking.find({ groupId, hotelId })
         .populate('roomId')
         .populate('guestId', 'name phone email')
@@ -585,6 +585,32 @@ export const expireBooking = async (req: AuthRequest, res: Response) => {
     if (!booking) return res.status(404).json({ error: 'Enquiry or Block not found' });
 
     res.json(standardizeBooking(booking, hotel));
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// PATCH /api/bookings/group/:groupId — Update group metadata
+export const updateGroup = async (req: AuthRequest, res: Response) => {
+  try {
+    const { groupId } = req.params;
+    const { groupName, totalRooms, billingType, leadGuestId } = req.body;
+    const hotelId = req.hotelId!;
+
+    // If groupId is not a valid ObjectId, this group might be ad-hoc (string ID in bookings only)
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+       return res.status(404).json({ error: 'Group record not found (Ad-hoc Group)' });
+    }
+
+    const group = await Group.findOneAndUpdate(
+      { _id: new mongoose.Types.ObjectId(groupId), hotelId } as any,
+      { groupName, totalRooms, billingType, leadGuestId },
+      { new: true }
+    );
+
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    res.json(group);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

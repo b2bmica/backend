@@ -28,6 +28,8 @@ export interface IBooking extends Document {
   blockReason?: string;
   specialRequests?: string;
   planCustomText?: string;
+  isGroup?: boolean;
+  groupName?: string;
 }
 
 const BookingSchema: Schema = new Schema(
@@ -76,6 +78,8 @@ const BookingSchema: Schema = new Schema(
     groupId: { type: String, index: true },
     mealRate: { type: Number, default: 0 },
     mealChargeTotal: { type: Number, default: 0 },
+    isGroup: { type: Boolean, default: false },
+    groupName: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
