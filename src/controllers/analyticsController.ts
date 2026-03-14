@@ -104,11 +104,10 @@ export const getOperations = async (req: AuthRequest, res: Response) => {
     const hotelId = req.hotelId!;
     const rooms = await Room.find({ hotelId });
     const statuses = {
-      available: rooms.filter(r => r.status === 'clean' || r.status === 'available').length,
+      available: rooms.filter(r => r.status === 'clean').length,
       occupied: rooms.filter(r => r.status === 'occupied').length,
       dirty: rooms.filter(r => r.status === 'dirty').length,
-      maintenance: rooms.filter(r => r.status === 'maintenance').length,
-      blocked: rooms.filter(r => r.status === 'blocked').length
+      maintenance: rooms.filter(r => r.status === 'maintenance').length
     };
 
     res.json({

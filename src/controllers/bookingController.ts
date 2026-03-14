@@ -545,7 +545,7 @@ export const getGroupBookings = async (req: AuthRequest, res: Response) => {
 
     const [hotel, group, bookings] = await Promise.all([
       Hotel.findById(hotelId),
-      mongoose.Types.ObjectId.isValid(groupId) ? Group.findOne({ _id: groupId, hotelId }).populate('leadGuestId', 'name phone email') : Promise.resolve(null),
+      mongoose.Types.ObjectId.isValid(groupId as string) ? Group.findOne({ _id: groupId as string, hotelId }).populate('leadGuestId', 'name phone email') : Promise.resolve(null),
       Booking.find({ groupId, hotelId })
         .populate('roomId')
         .populate('guestId', 'name phone email')
@@ -598,12 +598,12 @@ export const updateGroup = async (req: AuthRequest, res: Response) => {
     const hotelId = req.hotelId!;
 
     // If groupId is not a valid ObjectId, this group might be ad-hoc (string ID in bookings only)
-    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+    if (!mongoose.Types.ObjectId.isValid(groupId as string)) {
        return res.status(404).json({ error: 'Group record not found (Ad-hoc Group)' });
     }
 
     const group = await Group.findOneAndUpdate(
-      { _id: new mongoose.Types.ObjectId(groupId), hotelId } as any,
+      { _id: new mongoose.Types.ObjectId(groupId as string), hotelId } as any,
       { groupName, totalRooms, billingType, leadGuestId },
       { new: true }
     );
