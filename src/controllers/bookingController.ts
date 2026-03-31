@@ -33,7 +33,7 @@ const hasConflict = async (hotelId: string, roomId: string, checkin: Date, check
   };
 
   if (excludeBookingId) {
-    query._id = { $ne: excludeBookingId };
+    query._id = { $ne: new mongoose.Types.ObjectId(excludeBookingId) };
   }
 
   const existing = await Booking.findOne(query);
@@ -114,8 +114,15 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     const { roomId, checkin, checkout, reservationType, planType, enquiryExpiresAt, blockExpiresAt, adults, ...details } = req.body;
     const hotelId = req.hotelId!;
 
-    const startDate = new Date(checkin);
-    const endDate = new Date(checkout);
+    const cTime = details.checkinTime || req.body.checkinTime || '14:00';
+    const oTime = details.checkoutTime || req.body.checkoutTime || '11:00';
+    
+    // Ensure checkin is yyyy-MM-dd format before combining
+    const ciDateStr = checkin.includes('T') ? checkin.split('T')[0] : checkin;
+    const coDateStr = checkout.includes('T') ? checkout.split('T')[0] : checkout;
+
+    const startDate = new Date(`${ciDateStr}T${cTime}:00`);
+    const endDate = new Date(`${coDateStr}T${oTime}:00`);
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return res.status(400).json({ error: 'Invalid checkin or checkout date' });
@@ -240,8 +247,13 @@ export const modifyBooking = async (req: AuthRequest, res: Response) => {
     const { roomId, checkin, checkout, paymentMethod, advancePayment, adults, planType } = req.body;
     const hotelId = req.hotelId!;
 
-    const startDate = checkin ? new Date(checkin) : undefined;
-    const endDate = checkout ? new Date(checkout) : undefined;
+    const cTime = req.body.checkinTime || '14:00';
+    const oTime = req.body.checkoutTime || '11:00';
+    const ciDateStr = checkin ? (checkin.includes('T') ? checkin.split('T')[0] : checkin) : undefined;
+    const coDateStr = checkout ? (checkout.includes('T') ? checkout.split('T')[0] : checkout) : undefined;
+
+    const startDate = ciDateStr ? new Date(`${ciDateStr}T${cTime}:00`) : undefined;
+    const endDate = coDateStr ? new Date(`${coDateStr}T${oTime}:00`) : undefined;
 
     if (startDate && endDate && roomId) {
       const conflict = await hasConflict(hotelId, roomId as string, startDate, endDate, id as string);
@@ -351,8 +363,11 @@ export const checkAvailability = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Checkin and checkout dates are required' });
     }
 
-    const startDate = new Date(checkin);
-    const endDate = new Date(checkout);
+    // Use standard 14:00/11:00 unless exact time is provided by query
+    const ciDateStr = checkin.includes('T') ? checkin.split('T')[0] : checkin;
+    const coDateStr = checkout.includes('T') ? checkout.split('T')[0] : checkout;
+    const startDate = new Date(`${ciDateStr}T14:00:00`);
+    const endDate = new Date(`${coDateStr}T11:00:00`);
 
     const [hotel, rooms] = await Promise.all([
       Hotel.findById(hotelId),
@@ -449,8 +464,12 @@ export const createGroupBooking = async (req: AuthRequest, res: Response) => {
   try {
     const { groupName, leadGuestId, billingType, checkin, checkout, rooms, planType } = req.body;
     const hotelId = req.hotelId!;
-    const startDate = new Date(checkin);
-    const endDate = new Date(checkout);
+    const cTime = req.body.checkinTime || '14:00';
+    const oTime = req.body.checkoutTime || '11:00';
+    const ciDateStr = checkin.includes('T') ? checkin.split('T')[0] : checkin;
+    const coDateStr = checkout.includes('T') ? checkout.split('T')[0] : checkout;
+    const startDate = new Date(`${ciDateStr}T${cTime}:00`);
+    const endDate = new Date(`${coDateStr}T${oTime}:00`);
 
     const [hotel, leadGuest] = await Promise.all([
       Hotel.findById(hotelId),

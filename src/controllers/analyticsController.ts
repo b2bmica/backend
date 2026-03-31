@@ -69,31 +69,8 @@ export const getOccupancy = async (req: AuthRequest, res: Response) => {
 export const getFinance = async (req: AuthRequest, res: Response) => {
   try {
     const hotelId = req.hotelId!;
-    const startDate = req.query.startDate ? parseISO(req.query.startDate as string) : subDays(new Date(), 30);
-    const endDate = req.query.endDate ? parseISO(req.query.endDate as string) : new Date();
-
-    const bookings = await Booking.find({
-      hotelId,
-      status: { $in: ['reserved', 'checked-in', 'checked-out'] },
-      checkin: { $lt: endOfDay(endDate) },
-      checkout: { $gt: startOfDay(startDate) }
-    });
-
-    let totalPending = 0;
-    let totalAdvance = 0;
-
-    bookings.forEach(b => {
-      totalAdvance += b.advancePayment || 0;
-      // Pending requires full calculation from pricing utility or stored balance
-      // Since we standardized bookings in older steps, here we'll use a simplified balance
-      // In production, we'd use the pricing utility to get exact due amount
-    });
-
-    res.json({
-      advancePayments: totalAdvance,
-      pendingPayments: totalPending,
-      gstCollected: 0 // Will aggregate from DailyAnalytics
-    });
+    const summary = await AnalyticsService.getFinanceSummary(hotelId.toString());
+    res.json(summary);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -164,5 +141,27 @@ export const triggerSync = async (req: AuthRequest, res: Response) => {
         res.status(400).json({ error: error.message });
     }
 }
+
+export const updateOpeningCash = async (req: AuthRequest, res: Response) => {
+  try {
+    const hotelId = req.hotelId!;
+    const { amount } = req.body;
+    const result = await AnalyticsService.updateOpeningCash(hotelId.toString(), amount);
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const finalizeFinance = async (req: AuthRequest, res: Response) => {
+  try {
+    const hotelId = req.hotelId!;
+    const { summary } = req.body;
+    const result = await AnalyticsService.finalizeDailyFinance(hotelId.toString(), summary);
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
 
 import { format, addDays } from 'date-fns';

@@ -14,6 +14,11 @@ export interface IDailyAnalytics extends Document {
   netRevenue: number; // Currently same as grossRevenue in this PMS context if GST is tracked separately
   adr: number;
   revPar: number;
+  openingCash: number;
+  cashCollection: number;
+  upiCollection: number;
+  cardCollection: number;
+  isFinalized: boolean;
 }
 
 const DailyAnalyticsSchema: Schema = new Schema(
@@ -31,6 +36,11 @@ const DailyAnalyticsSchema: Schema = new Schema(
     netRevenue: { type: Number, default: 0 },
     adr: { type: Number, default: 0 },
     revPar: { type: Number, default: 0 },
+    openingCash: { type: Number, default: 0 },
+    cashCollection: { type: Number, default: 0 },
+    upiCollection: { type: Number, default: 0 },
+    cardCollection: { type: Number, default: 0 },
+    isFinalized: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

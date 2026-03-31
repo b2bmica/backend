@@ -8,7 +8,9 @@ import {
   getFinance, 
   getOperations, 
   getForecast,
-  triggerSync
+  triggerSync,
+  updateOpeningCash,
+  finalizeFinance
 } from '../controllers/analyticsController.js';
 
 const router = express.Router();
@@ -24,5 +26,8 @@ router.get('/finance', getFinance);
 router.get('/operations', getOperations);
 router.get('/forecast', getForecast);
 router.get('/sync', triggerSync);
+
+router.post('/opening-cash', updateOpeningCash);
+router.post('/finalize-finance', finalizeFinance);
 
 export default router;

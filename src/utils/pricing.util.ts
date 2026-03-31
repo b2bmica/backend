@@ -37,17 +37,17 @@ export const calculateBookingPrice = (params: PriceParams) => {
   
   const subtotal = baseFare + extraPersonCharge + mealChargeTotal;
   
-  const cgst = (subtotal * params.gstRates.cgst) / 100;
-  const sgst = (subtotal * params.gstRates.sgst) / 100;
+  const cgst = Math.round((subtotal * params.gstRates.cgst) / 100);
+  const sgst = Math.round((subtotal * params.gstRates.sgst) / 100);
   
-  const grandTotal = subtotal + cgst + sgst;
+  const grandTotal = Math.round(subtotal + cgst + sgst);
   
   return {
     nights,
-    baseFare,
-    extraPersonCharge,
-    mealChargeTotal,
-    subtotal,
+    baseFare: Math.round(baseFare),
+    extraPersonCharge: Math.round(extraPersonCharge),
+    mealChargeTotal: Math.round(mealChargeTotal),
+    subtotal: Math.round(subtotal),
     cgst,
     sgst,
     grandTotal
