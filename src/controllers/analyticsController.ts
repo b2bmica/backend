@@ -9,7 +9,7 @@ import mongoose from 'mongoose';
 export const getDashboard = async (req: AuthRequest, res: Response) => {
   try {
     const hotelId = req.hotelId!;
-    
+
     // Proactively sync last 7 days to ensure dashboard is fresh
     // In production, this would be a background job
     const start = subDays(new Date(), 7);
@@ -130,16 +130,16 @@ export const getForecast = async (req: AuthRequest, res: Response) => {
 
 // Internal utility to sync analytics
 export const triggerSync = async (req: AuthRequest, res: Response) => {
-    try {
-        const { hotelId } = req;
-        const { start, end } = req.query;
-        if(!start || !end) return res.status(400).json({ error: 'Start and end dates required' });
-        
-        await AnalyticsService.syncDailyAnalytics(hotelId!.toString(), parseISO(start as string), parseISO(end as string));
-        res.json({ message: 'Sync complete' });
-    } catch (error: any) {
-        res.status(400).json({ error: error.message });
-    }
+  try {
+    const { hotelId } = req;
+    const { start, end } = req.query;
+    if (!start || !end) return res.status(400).json({ error: 'Start and end dates required' });
+
+    await AnalyticsService.syncDailyAnalytics(hotelId!.toString(), parseISO(start as string), parseISO(end as string));
+    res.json({ message: 'Sync complete' });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
 }
 
 export const updateOpeningCash = async (req: AuthRequest, res: Response) => {

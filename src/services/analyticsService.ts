@@ -6,6 +6,7 @@ import DailyAnalytics from '../models/DailyAnalytics.js';
 import MonthlyAnalytics from '../models/MonthlyAnalytics.js';
 import { startOfDay, endOfDay, addDays, format, subDays, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { calculateBookingPrice } from '../utils/pricing.util.js';
+import FolioCharge from '../models/FolioCharge.js';
 
 export class AnalyticsService {
   /**
@@ -17,7 +18,7 @@ export class AnalyticsService {
 
     const rooms = await Room.find({ hotelId });
     const totalRoomsCount = rooms.length;
-    
+
     // We iterate day by day
     let current = startOfDay(startDate);
     const targetEnd = startOfDay(endDate);
@@ -47,7 +48,7 @@ export class AnalyticsService {
 
       const roomsSold = activeBookings.length;
       const roomsAvailable = Math.max(0, totalRoomsCount - blockedRoomsCount);
-      
+
       let dayRoomRev = 0;
       let dayExtraRev = 0;
       let dayMealRev = 0;
@@ -63,7 +64,7 @@ export class AnalyticsService {
         // We divide the total amounts by total nights
         // Note: In a more complex system, we might have day-wise rates, but here rates are fixed per booking.
         dayRoomRev += booking.roomPrice / totalNights;
-        
+
         // Extra person revenue
         const adults = booking.adults || 1;
         const baseOcc = booking.baseOccupancy || 2;
@@ -137,7 +138,7 @@ export class AnalyticsService {
     const totalNetRevenue = dailies.reduce((sum, d) => sum + d.netRevenue, 0);
     const totalTaxAmount = dailies.reduce((sum, d) => sum + d.taxAmount, 0);
     const totalGrossRevenue = totalNetRevenue + totalTaxAmount;
-    
+
     // Count unique bookings that touch this month
     const totalBookings = await Booking.countDocuments({
       hotelId,
@@ -217,10 +218,10 @@ export class AnalyticsService {
     const todayPayments = await Booking.aggregate([
       { $match: { hotelId: new mongoose.Types.ObjectId(hotelId) } },
       { $unwind: '$paymentLogs' },
-      { 
-        $match: { 
-          'paymentLogs.date': { $gte: startOfDay(today), $lte: endOfDay(today) } 
-        } 
+      {
+        $match: {
+          'paymentLogs.date': { $gte: startOfDay(today), $lte: endOfDay(today) }
+        }
       },
       {
         $group: {
@@ -298,6 +299,20 @@ export class AnalyticsService {
     const avgStayDuration = last30Days.length > 0 ? (totalStayDays / last30Days.length).toFixed(1) : '0';
     const totalBookingsCount = last30Days.length || 1;
 
+    // Restaurant Rev & Active Orders
+    const todayFolioCharges = await FolioCharge.find({
+      hotelId,
+      type: 'restaurant',
+      date: { $gte: startOfDay(today), $lte: endOfDay(today) }
+    });
+
+    const restaurantRev = todayFolioCharges.reduce((sum, charge) => sum + charge.amount, 0);
+    const activeOrders = await FolioCharge.countDocuments({
+      hotelId,
+      type: 'restaurant',
+      isBilled: false
+    });
+
     return {
       kpis: {
         todayRevenue: todayStats?.grossRevenue || 0,
@@ -324,6 +339,8 @@ export class AnalyticsService {
         roomStatusDistribution: roomsByStatus,
         roomsToClean: roomsByStatus.dirty,
         maintenanceRooms: roomsByStatus.maintenance,
+        restaurantRev,
+        activeOrders
       },
       alerts: {
         dirtyRooms: roomsByStatus.dirty,
@@ -428,13 +445,13 @@ export class AnalyticsService {
     const allBookings = await Booking.find({ hotelId, status: { $ne: 'cancelled' } }).populate('roomId');
 
     let outstandingAmount = 0;
-    let advanceCollected = 0; 
-    
+    let advanceCollected = 0;
+
     const todayCollection: any = { cash: 0, upi: 0, card: 0, total: 0 };
-    
+
     let unpaidCheckoutsTodayCount = 0;
     let unpaidCheckoutsTodayAmount = 0;
-    
+
     let overdueBillsCount = 0;
     let overdueBillsAmount = 0;
 
@@ -474,7 +491,7 @@ export class AnalyticsService {
           if (method === 'cash') todayCollection.cash += log.amount;
           else if (method === 'upi') todayCollection.upi += log.amount;
           else if (method === 'card') todayCollection.card += log.amount;
-          
+
           todayCollection.total += log.amount;
         }
       });
@@ -536,7 +553,7 @@ export class AnalyticsService {
 
   static async finalizeDailyFinance(hotelId: string, summary: any) {
     const today = startOfDay(new Date());
-    
+
     return await DailyAnalytics.findOneAndUpdate(
       { hotelId, date: today },
       {
